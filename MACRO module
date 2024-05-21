@@ -1,0 +1,99 @@
+
+
+
+' Convert text to fields within the selection
+Sub AliFieldToText_Selected()
+    Dim MyString As String
+    Dim aField As Field
+    Dim selectedRange As Range
+    
+    ' Save the current selection to work within the selected range
+    Set selectedRange = Selection.Range
+    
+    ' Show field codes in the selected range
+    For Each Field In selectedRange.Fields
+        Field.ShowCodes = True
+    Next Field
+    
+    ' Loop through each field in the selected range
+    For Each aField In selectedRange.Fields
+        aField.Select
+        MyString = "{ " & aField.code.text & " }"
+        ' aField.Result.text = MyString ' This convert the result of what is selected
+        Selection.text = MyString ' convert what is selected into the updated string
+    Next aField
+    
+    ' Hide field codes in the selected range
+    For Each Field In selectedRange.Fields
+        Field.ShowCodes = False
+    Next Field
+End Sub
+
+' Convert fields to text within the selection
+Sub AliTextToFields_Selected()
+      Dim rng As Range
+      Set rng = Selection.Range
+      AliTextToFields rng
+End Sub
+
+
+Sub AliFieldToText_All()
+    Dim MyString As String
+    ActiveWindow.View.ShowFieldCodes = True
+    For Each aField In ActiveDocument.Fields
+        aField.Select
+        MyString = "{ " & Selection.Fields(1).code.text & " }"
+        Selection.text = MyString
+    Next aField
+    ActiveWindow.View.ShowFieldCodes = False
+End Sub
+
+  
+  Sub AliTextToFields(rng1 As Range)
+      Dim rng As Range
+      Dim fld As Field
+      
+      Set rng = GetField(rng1)
+      Do Until rng Is Nothing
+          rng.Characters.First.Delete 'remove the "{"
+          rng.Characters.Last.Delete 'and the '}'
+          rng.Copy
+          Set fld = ActiveDocument.Fields.Add(rng, wdFieldEmpty, rng.text, False)
+          fld.code.Paste 'VBA bug. The line above corrupts nested fields, so we replace the range
+          Set rng = GetField(rng1)
+      Loop
+  End Sub
+  
+  Function GetField(rng As Range) As Range
+      Dim rngStart As Long
+      Dim rng1 As Range
+      Dim bFound As Boolean
+      
+      'looks for a potential field i.e. text bracketed with "{" and "}", but no contained "{"
+      Set rng1 = rng.Duplicate
+      bFound = True
+      Do While bFound
+          With rng1.Find
+              bFound = False
+              .text = "{"
+              .MatchWildcards = False
+              If .Execute Then
+                  bFound = True
+                  rngStart = rng1.Start
+                  rng1.Collapse wdCollapseEnd
+                  rng1.End = rng.End
+                  .MatchWildcards = True
+                  .text = "[\{\}]{1}"
+                  If .Execute Then
+                      If rng1.Characters.First.text = "}" Then
+                          rng1.Start = rngStart
+                          Set GetField = rng1.Duplicate
+                          Exit Function
+                      End If
+                  End If
+                  rng1.Start = rngStart + 1
+                  rng1.End = rng.End
+              End If
+          End With
+      Loop
+  End Function
